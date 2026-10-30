@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Database and Custom WAL Storage Files
+data/
+**/data/
+*.jsonl
+*.db
+*.sqlite3
+*.log
+
+# Docker
+.docker/
+
+# IDE / Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

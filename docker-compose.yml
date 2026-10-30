@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  primary:
+    build: ./primary_node
+    container_name: kv_primary
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ID=primary
+      - PORT=8000
+      - REPLICAS=http://backup1:8001,http://backup2:8002
+      - DEFAULT_QUORUM_W=2
+      - DATA_DIR=/app/data
+    volumes:
+      - primary_data:/app/data
+    networks:
+      - kv_net
+
+  backup1:
+    build: ./backup_node
+    container_name: kv_backup1
+    ports:
+      - "8001:8001"
+    environment:
+      - NODE_ID=backup-1
+      - PORT=8001
+      - PRIMARY_URL=http://primary:8000
+      - DATA_DIR=/app/data
+    volumes:
+      - backup1_data:/app/data
+    depends_on:
+      - primary
+    networks:
+      - kv_net
+
+  backup2:
+    build: ./backup_node
+    container_name: kv_backup2
+    ports:
+      - "8002:8002"
+    environment:
+      - NODE_ID=backup-2
+      - PORT=8002
+      - PRIMARY_URL=http://primary:8000
+      - DATA_DIR=/app/data
+    volumes:
+      - backup2_data:/app/data
+    depends_on:
+      - primary
+    networks:
+      - kv_net
+
+  proxy:
+    build: ./client_proxy
+    container_name: kv_proxy
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - PRIMARY_URL=http://primary:8000
+      - BACKUP_URLS=http://backup1:8001,http://backup2:8002
+    depends_on:
+      - primary
+      - backup1
+      - backup2
+    networks:
+      - kv_net
+
+volumes:
+  primary_data:
+  backup1_data:
+  backup2_data:
+
+networks:
+  kv_net:
+    driver: bridge
