@@ -27,6 +27,7 @@ services:
       - PORT=8001
       - PRIMARY_URL=http://primary:8000
       - DATA_DIR=/app/data
+      - CATCHUP_DELAY_MS=${CATCHUP_DELAY_MS:-0}
     volumes:
       - backup1_data:/app/data
     depends_on:
@@ -44,6 +45,7 @@ services:
       - PORT=8002
       - PRIMARY_URL=http://primary:8000
       - DATA_DIR=/app/data
+      - CATCHUP_DELAY_MS=${CATCHUP_DELAY_MS:-0}
     volumes:
       - backup2_data:/app/data
     depends_on:
