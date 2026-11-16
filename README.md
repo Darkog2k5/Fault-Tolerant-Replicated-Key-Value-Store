@@ -22,7 +22,6 @@ A distributed key-value storage cluster that replicates data across multiple sto
     ├── docker-compose.yml            # Điều phối khởi động cụm (1 Primary, 2 Backups, 1 Proxy)
     ├── PROTOCOL_SPEC.md              # Đặc tả chi tiết các API & Format JSON (v4.1)
     ├── README.md                     # Giới thiệu & Hướng dẫn chạy dự án
-    ├── REVIEW_SINH_VIEN_2.md         # Review và ghi chú vai trò Backup
     │
     ├── primary_node/                 # [SV1] Máy chủ Primary Coordinator (Port 8000)
     │   ├── Dockerfile
