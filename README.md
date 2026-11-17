@@ -42,8 +42,9 @@ A distributed key-value storage cluster that replicates data across multiple sto
     │   └── proxy.py
     │
     └── tests/                        # Bộ kiểm thử độc lập
-        ├── mock_backup.py            # Giả lập Backup Nodes (Port 8001, 8002)
-        └── mock_client.py            # Giả lập Client test các chế độ ghi, đọc, xóa và catch-up
+        ├── mock_backup.py            # Giả lập Backup Nodes (Port 8001, 8002) theo chuẩn pending/commit
+        ├── mock_client.py            # Giả lập Client test nhanh các chế độ ghi, đọc, xóa và catch-up
+        └── test_primary_comprehensive.py  # Bộ kiểm thử tự động toàn diện cho Primary Node (SV1)
 
 ---
 
@@ -88,3 +89,7 @@ Chi tiết về cấu trúc các gói tin JSON, mã trạng thái và các endpo
 
     # Terminal 4: Chạy Client Test
     python tests/mock_client.py
+
+### Cách 3: Chạy Bộ Kiểm thử Tự động Toàn diện (SV1)
+
+    python tests/test_primary_comprehensive.py
