@@ -24,6 +24,9 @@ class MockBackupState:
         self.delay_sec: float = float(os.getenv("MOCK_DELAY_SEC", "0.0"))
         self.fail_replicate: bool = os.getenv("MOCK_FAIL_REPLICATE", "0") == "1"
         self.drop_commit: bool = os.getenv("MOCK_DROP_COMMIT", "0") == "1"
+        self.is_catching_up: bool = os.getenv("MOCK_CATCHING_UP", "0") == "1"
+        self.fail_read: bool = os.getenv("MOCK_FAIL_READ", "0") == "1"
+        self.read_delay_sec: float = float(os.getenv("MOCK_READ_DELAY_SEC", "0.0"))
 
 
 def _apply_to_storage(state: MockBackupState, entry: Dict[str, Any]):
@@ -55,7 +58,7 @@ def create_mock_backup_app(
     @app.get("/api/v1/health")
     async def health():
         return {
-            "status": "ALIVE",
+            "status": "CATCHING_UP" if state.is_catching_up else "ALIVE",
             "node_id": state.node_id,
             "role": "BACKUP",
             "current_version": state.current_version,
@@ -176,6 +179,14 @@ def create_mock_backup_app(
 
     @app.get("/api/v1/read/{key:path}")
     async def read_key(key: str):
+        if key == "":
+            raise HTTPException(status_code=400, detail="Key không được để trống")
+        if state.read_delay_sec > 0:
+            await asyncio.sleep(state.read_delay_sec)
+        if state.is_catching_up:
+            raise HTTPException(status_code=503, detail="NODE_CATCHING_UP")
+        if state.fail_read:
+            raise HTTPException(status_code=503, detail="Simulated read failure")
         async with state.lock:
             local_v = state.current_version
             item = state.storage.get(key)

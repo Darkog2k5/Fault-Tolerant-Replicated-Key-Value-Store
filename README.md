@@ -39,12 +39,14 @@ A distributed key-value storage cluster that replicates data across multiple sto
     ├── client_proxy/                 # [SV3] Client Proxy / Middleware (Port 8080)
     │   ├── Dockerfile
     │   ├── requirements.txt
+    │   ├── config.py
     │   └── proxy.py
     │
     └── tests/                        # Bộ kiểm thử độc lập
         ├── mock_backup.py            # Giả lập Backup Nodes (Port 8001, 8002) theo chuẩn pending/commit
-        ├── mock_client.py            # Giả lập Client test nhanh các chế độ ghi, đọc, xóa và catch-up
-        └── test_primary_comprehensive.py  # Bộ kiểm thử tự động toàn diện cho Primary Node (SV1)
+        ├── mock_client.py            # Giả lập Client test nhanh các chế độ ghi, đọc, xóa, catch-up và proxy
+        ├── test_primary_comprehensive.py  # Bộ kiểm thử tự động toàn diện cho Primary Node (SV1)
+        └── test_proxy_comprehensive.py    # Bộ kiểm thử tự động toàn diện cho Client Proxy (SV3)
 
 ---
 
@@ -87,9 +89,16 @@ Chi tiết về cấu trúc các gói tin JSON, mã trạng thái và các endpo
     # Terminal 3: Chạy Primary Node
     cd primary_node && python main.py
 
-    # Terminal 4: Chạy Client Test
+    # Terminal 4: Chạy Client Proxy (SV3)
+    cd client_proxy && python proxy.py
+
+    # Terminal 5: Chạy Client Test
     python tests/mock_client.py
 
-### Cách 3: Chạy Bộ Kiểm thử Tự động Toàn diện (SV1)
+### Cách 3: Chạy Bộ Kiểm thử Tự động Toàn diện (SV1 & SV3)
 
+    # Kiểm thử toàn diện Primary Coordinator Node (SV1)
     python tests/test_primary_comprehensive.py
+
+    # Kiểm thử toàn diện Smart Client Proxy (SV3)
+    python tests/test_proxy_comprehensive.py

@@ -165,14 +165,22 @@ Bản đặc tả giao diện lập trình ứng dụng (API Contract) và giao 
 
 ---
 
-## 4. QUY TẮC NHẤT QUÁN TẠI CLIENT PROXY (SINH VIÊN 3)
+## 4. API & QUY TẮC NHẤT QUÁN TẠI CLIENT PROXY (SINH VIÊN 3)
 
-1. **Theo dõi Phiên (Session Tracking):** Lưu `last_written_version`, `last_read_version` và `local_cache`.
-2. **Khi Ghi (`PUT` / `DELETE`):** Gửi lên `POST {PRIMARY_URL}/api/v1/write`. Nếu nhận `200 OK`, cập nhật `last_written_version = resp["version"]` và lưu vào `local_cache`.
+### 4.1. Các Endpoint của Client Proxy (`Port 8080`)
+* **`POST /api/v1/write`:** Chuyển tiếp yêu cầu `PUT` / `DELETE` tới `POST {PRIMARY_URL}/api/v1/write` (giữ nguyên định dạng Request/Response như Mục 2.1). Hỗ trợ tuỳ chọn header `X-Session-ID` hoặc query `session_id` (mặc định `"default"`).
+* **`GET /api/v1/read/{key}`:** Định tuyến đọc thông minh qua các Backup Node (Round-Robin) kèm kiểm tra tính nhất quán và Failover, trả về định dạng JSON chuẩn như Mục 2.2.
+* **`GET /api/v1/health`:** Kiểm tra trạng thái Proxy (`{"status": "ALIVE", "node_id": "proxy", "role": "PROXY", "current_version": ..., "last_written_version": ..., "last_read_version": ..., "primary_url": ..., "backups": [...]}`).
+* **`GET /api/v1/session` & `DELETE /api/v1/session`:** Truy vấn hoặc đặt lại trạng thái phiên (`last_written_version`, `last_read_version`, `local_cache`) và bộ đếm thống kê phục vụ kiểm thử.
+* **`GET /api/v1/stats`:** Trả về thống kê chi tiết (`total_writes`, `total_reads`, `backup_hits`, `primary_hits`, `cache_hits`, `stale_rejections`, `backup_failovers`, `primary_fallbacks`, `stale_rejection_rate`).
+
+### 4.2. Quy tắc Đảm bảo Nhất quán & Failover
+1. **Theo dõi Phiên (Session Tracking):** Lưu `last_written_version`, `last_read_version` và `local_cache` (hỗ trợ cả Tombstone khi `DELETE`).
+2. **Khi Ghi (`PUT` / `DELETE`):** Gửi lên `POST {PRIMARY_URL}/api/v1/write`. Nếu nhận `200 OK`, cập nhật `last_written_version = max(last_written_version, resp["version"])` và lưu vào `local_cache`. Nếu lỗi (`400` / `503`), giữ nguyên trạng thái phiên và trả lỗi về Client.
 3. **Khi Đọc (`GET`):**
    * Tính phiên bản tối thiểu cần đạt: `required_version = max(last_written_version, last_read_version)`.
-   * Gọi `GET /api/v1/read/{key}` tới một Backup Node (`timeout = 2.0s`).
+   * Gọi `GET /api/v1/read/{key}` tới các Backup Node theo thứ tự Round-Robin (`timeout = 2.0s`).
    * **Failover:** Nếu Backup timeout hoặc trả về `503` -> Thử Backup còn lại hoặc gọi thẳng vào Primary.
    * **Kiểm tra Read-Your-Writes & Monotonic Reads:** So sánh trường **`"node_version"`** của node trả về với `required_version`:
-     * Nếu `resp["node_version"] < required_version`: Từ chối dữ liệu cũ, gọi đọc trực tiếp từ Primary (hoặc lấy từ `local_cache`).
-     * Nếu `resp["node_version"] >= required_version`: Hợp lệ -> Cập nhật `last_read_version = max(last_read_version, resp["node_version"])` và trả kết quả cho Client.
+     * Nếu `resp["node_version"] < required_version`: Từ chối dữ liệu cũ, thử Backup tiếp theo hoặc gọi đọc trực tiếp từ Primary (hoặc lấy từ `local_cache` nếu Primary không khả dụng).
+     * Nếu `resp["node_version"] >= required_version`: Hợp lệ -> Cập nhật `last_read_version = max(last_read_version, resp["node_version"])`, đồng bộ `local_cache` và trả kết quả cho Client.
