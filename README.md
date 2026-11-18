@@ -49,8 +49,9 @@ A distributed key-value storage cluster that replicates data across multiple sto
         ├── cluster_harness.py         # Khởi chạy và dọn dẹp tiến trình cụm
         ├── bench_recovery.py          # Đo thời gian catch-up và độ trễ đọc
         ├── requirements.txt           # Phụ thuộc cho kiểm thử
-        ├── mock_backup.py             # Giả lập Backup cho kiểm thử failover
-        └── mock_client.py             # Giả lập Client kiểm thử Primary
+        ├── mock_backup.py             # Giả lập Backup theo chuẩn pending/commit (dùng cho test SV1)
+        ├── mock_client.py             # Giả lập Client kiểm thử Primary
+        └── test_primary_comprehensive.py  # Bộ kiểm thử tự động toàn diện cho Primary Node (SV1)
 
 ---
 
@@ -123,6 +124,10 @@ Mở bốn terminal tại thư mục gốc dự án. Mỗi Backup phải dùng m
     NODE_ID=backup-2 PORT=8002 PRIMARY_URL=http://127.0.0.1:8000 DATA_DIR=data/backup-2 python backup_node/main.py
 
 Sau khi các node báo sẵn sàng, có thể chạy `python tests/mock_client.py` từ terminal thứ tư. Cấu hình Backup khác được liệt kê ở mục 6.
+
+### Cách 4: Chạy Bộ Kiểm thử Tự động Toàn diện của Primary (SV1)
+
+    python tests/test_primary_comprehensive.py
 
 ## 5. KIỂM THỬ BACKUP NODE
 

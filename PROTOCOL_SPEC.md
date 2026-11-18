@@ -30,11 +30,13 @@ Bản đặc tả giao diện lập trình ứng dụng (API Contract) và giao 
 
     {
       "operation": "PUT",           // Bắt buộc: "PUT" hoặc "DELETE"
-      "key": "user_101",            // Bắt buộc: Khóa dữ liệu
-      "value": "Nguyen Van A",      // Bắt buộc nếu là PUT, để null nếu là DELETE
+      "key": "user_101",            // Bắt buộc: Khóa dữ liệu (không rỗng)
+      "value": "Nguyen Van A",      // Bắt buộc nếu là PUT (hỗ trợ chuỗi/số/bool/JSON), để null nếu là DELETE
       "consistency": "QUORUM",      // Tuỳ chọn: "SYNC" (mặc định), "ASYNC", hoặc "QUORUM"
-      "quorum_w": 2                 // Tuỳ chọn: Số node tối thiểu cần ACK khi chạy QUORUM (mặc định W=2)
+      "quorum_w": 2                 // Tuỳ chọn: Số node tối thiểu cần ACK khi chạy QUORUM (1 <= W <= N, mặc định W=2)
     }
+
+* **Lưu ý bảo vệ Split-Brain (`503 -> ASYNC`):** Nếu một lệnh `SYNC`/`QUORUM` ở phiên bản `v` thất bại (`503`) sau khi đã có Backup kịp lưu `pending[v]` và ngay sau đó Client ghi `ASYNC` ở phiên bản `v`, Primary sẽ gửi `commit_version = v - 1` kèm `POST /api/v1/commit {"commit_version": v}` theo sau để Backup ghi đè bản ghi cũ thay vì commit nhầm dữ liệu đã huỷ.
 
 * **Response Thành công (`200 OK`):**
 
@@ -64,7 +66,7 @@ Bản đặc tả giao diện lập trình ứng dụng (API Contract) và giao 
     }
 
 ### 2.2. Đọc dữ liệu (`GET /api/v1/read/{key}`)
-* **Dùng chung một cấu trúc JSON trả về cho cả Primary (SV1) và Backup (SV2).**
+* **Dùng chung một cấu trúc JSON trả về cho cả Primary (SV1) và Backup (SV2).** (Primary hỗ trợ cả khóa phân cấp dạng `users/101/profile` thông qua `{key:path}`).
 * **Hỗ trợ Tombstone (Bia mộ):** Khi một `key` bị `DELETE` ở phiên bản `v`, hệ thống lưu dấu `{"value": null, "version": v, "deleted": true}` thay vì xóa trắng khỏi bộ nhớ.
 * **Response (`200 OK`):**
 
