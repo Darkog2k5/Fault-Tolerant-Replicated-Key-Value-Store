@@ -1,7 +1,7 @@
 """HTTP API cho Backup Replica Node."""
 
 from contextlib import asynccontextmanager
-from typing import Literal
+from typing import Any, Literal
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -32,7 +32,8 @@ class ReplicateRequest(RequestModel):
     commit_version: int = Field(ge=0)
     operation: Literal["PUT", "DELETE"]
     key: str
-    value: str | None = None
+    # Primary nhận mọi giá trị JSON (chuỗi, số, bool, object, mảng) nên Backup cũng vậy.
+    value: Any = None
     timestamp: float | None = None
     entry_id: str | None = None
     commit_entry_id: str | None = None
@@ -77,7 +78,8 @@ def create_app(node: BackupNode | None = None) -> FastAPI:
     async def health():
         return await backup.health_state()
 
-    @app.get("/api/v1/read/{key}")
+    # {key:path} để khóa phân cấp như "users/101/profile" đọc được giống Primary.
+    @app.get("/api/v1/read/{key:path}")
     async def read(key: str):
         try:
             return await backup.read(key)

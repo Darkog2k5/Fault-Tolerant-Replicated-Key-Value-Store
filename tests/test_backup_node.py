@@ -683,6 +683,66 @@ def test_put_without_value_returns_422(tmp_path):
         assert response.status_code == 422
 
 
+JSON_VALUES = [42, 3.5, True, False, 0, "", {"a": 1, "b": [1, 2]}, [1, "hai", None]]
+
+
+@pytest.mark.parametrize("value", JSON_VALUES, ids=repr)
+def test_non_string_json_value_is_replicated_persisted_and_recovered(tmp_path, value):
+    primary = FakePrimary()
+    with open_client(make_node(tmp_path, primary)) as client:
+        start_alive(client, primary)
+        response = client.post("/api/v1/replicate", json=body(1, 0, value))
+        assert response.status_code == 200, response.text
+        client.post("/api/v1/commit", json={"commit_version": 1})
+        assert client.get("/api/v1/read/k").json()["value"] == value
+    assert committed_wal(tmp_path)[0]["value"] == value
+
+    # Khởi động lại phải đọc được WAL chứa value không phải chuỗi.
+    primary.entries = [make_entry(1, value=value)]
+    with open_client(make_node(tmp_path, primary)) as client:
+        start_alive(client, primary)
+        item = client.get("/api/v1/read/k").json()
+        assert item["value"] == value
+        assert item["found"] is True
+
+
+def test_catchup_accepts_non_string_json_values(tmp_path):
+    values = [7, {"nested": {"x": [1, 2]}}, False]
+    primary = FakePrimary(
+        [make_entry(i, key=f"k{i}", value=v) for i, v in enumerate(values, start=1)]
+    )
+    with open_client(make_node(tmp_path, primary)) as client:
+        start_alive(client, primary)
+        assert client.get("/api/v1/health").json()["current_version"] == 3
+        for i, value in enumerate(values, start=1):
+            assert client.get(f"/api/v1/read/k{i}").json()["value"] == value
+
+
+def test_catchup_rejects_put_with_null_value(tmp_path):
+    primary = FakePrimary([make_entry(1, value=None)])
+    with open_client(make_node(tmp_path, primary)) as client:
+        assert wait_until(lambda: node_error(client) is not None)
+        assert client.get("/api/v1/health").json()["current_version"] == 0
+    assert committed_wal(tmp_path) == []
+
+
+def node_error(client):
+    return client.app.state.backup_node.last_catchup.get("last_error")
+
+
+def test_hierarchical_key_is_readable(tmp_path):
+    primary = FakePrimary()
+    with open_client(make_node(tmp_path, primary)) as client:
+        start_alive(client, primary)
+        key = "users/101/profile"
+        client.post("/api/v1/replicate", json=body(1, 0, "hồ sơ", key=key))
+        client.post("/api/v1/commit", json={"commit_version": 1})
+        item = client.get(f"/api/v1/read/{key}").json()
+        assert item["key"] == key
+        assert item["value"] == "hồ sơ"
+        assert client.get("/api/v1/read/users/101").json()["found"] is False
+
+
 def test_concurrent_gap_detections_share_one_catchup_call(tmp_path):
     primary = FakePrimary(delay=0.05)
     with open_client(make_node(tmp_path, primary)) as client:

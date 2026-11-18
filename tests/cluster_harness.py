@@ -268,7 +268,7 @@ class Cluster:
     def write(
         self,
         key: str,
-        value: str | None,
+        value: Any,
         consistency: str = "SYNC",
         operation: str = "PUT",
         quorum_w: int | None = None,

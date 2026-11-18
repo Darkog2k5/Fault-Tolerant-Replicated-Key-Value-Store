@@ -166,8 +166,9 @@ class BackupNode:
             raise ValueError("operation trong WAL không hợp lệ")
         if not isinstance(entry["key"], str):
             raise ValueError("key trong WAL phải là chuỗi")
-        if entry["value"] is not None and not isinstance(entry["value"], str):
-            raise ValueError("value trong WAL phải là chuỗi hoặc null")
+        # value là giá trị JSON bất kỳ; chỉ PUT bắt buộc khác null (giống Primary).
+        if entry["operation"] == "PUT" and entry["value"] is None:
+            raise ValueError("bản ghi PUT trong WAL thiếu value")
         if type(entry["timestamp"]) not in (int, float):
             raise ValueError("timestamp trong WAL phải là số")
         if "entry_id" in entry and not isinstance(entry["entry_id"], str):

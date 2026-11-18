@@ -378,3 +378,23 @@ def test_t12_mixed_consistency_writes_converge_on_all_nodes(cluster):
     target_version = cluster.health("primary")["current_version"]
     wait_node_version(cluster, ("primary", "backup-1", "backup-2"), target_version)
     assert_cluster_consistent(cluster, keys)
+
+def test_t13_non_string_values_and_hierarchical_keys_replicate(cluster):
+    """ASYNC ghi số rồi SYNC/QUORUM ghi object, mảng, khóa có '/' vẫn hội tụ."""
+    writes = [
+        ("t13-async-int", 7, "ASYNC"),
+        ("t13-sync-dict", {"ten": "An", "tuoi": 20}, "SYNC"),
+        ("t13-quorum-list", [1, "hai", None], "QUORUM"),
+        ("t13/users/101/profile", True, "SYNC"),
+        ("t13-after", "chuỗi", "SYNC"),
+    ]
+    for key, value, mode in writes:
+        response = cluster.write(key, value, consistency=mode)
+        assert response.status_code == 200, response.text
+
+    target_version = cluster.health("primary")["current_version"]
+    wait_node_version(cluster, ("primary", "backup-1", "backup-2"), target_version)
+    for node in ("backup-1", "backup-2"):
+        for key, value, _ in writes:
+            assert read_data(cluster, node, key)["value"] == value
+    assert_cluster_consistent(cluster, [key for key, _, _ in writes])
