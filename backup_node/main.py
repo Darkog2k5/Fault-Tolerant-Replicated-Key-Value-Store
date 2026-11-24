@@ -81,6 +81,9 @@ def create_app(node: BackupNode | None = None) -> FastAPI:
     # {key:path} để khóa phân cấp như "users/101/profile" đọc được giống Primary.
     @app.get("/api/v1/read/{key:path}")
     async def read(key: str):
+        # Giống Primary và Proxy: khóa rỗng là yêu cầu sai, không phải "không tìm thấy".
+        if key == "":
+            raise HTTPException(status_code=400, detail="Key không được để trống")
         try:
             return await backup.read(key)
         except RuntimeError as error:

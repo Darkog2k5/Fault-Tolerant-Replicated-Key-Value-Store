@@ -743,6 +743,16 @@ def test_hierarchical_key_is_readable(tmp_path):
         assert client.get("/api/v1/read/users/101").json()["found"] is False
 
 
+def test_empty_key_read_is_rejected_like_primary(tmp_path):
+    primary = FakePrimary()
+    with open_client(make_node(tmp_path, primary)) as client:
+        start_alive(client, primary)
+        for url in ("/api/v1/read/", "/api/v1/read"):
+            response = client.get(url)
+            assert response.status_code == 400
+            assert response.json() == {"detail": "Key không được để trống"}
+
+
 def test_concurrent_gap_detections_share_one_catchup_call(tmp_path):
     primary = FakePrimary(delay=0.05)
     with open_client(make_node(tmp_path, primary)) as client:

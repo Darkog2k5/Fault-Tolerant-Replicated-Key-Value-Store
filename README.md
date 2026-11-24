@@ -99,7 +99,7 @@ Chi tiết về cấu trúc các gói tin JSON, mã trạng thái và các endpo
 
 ### Cách 3: Chạy Backup thật ở local (không Docker)
 
-Mở bốn terminal tại thư mục gốc dự án. Mỗi Backup phải dùng một `DATA_DIR` riêng để WAL không bị dùng chung.
+Backup Node cần **Python ≥ 3.10** (code dùng cú pháp kiểu `str | None`); image Docker đã dùng `python:3.11-slim`. Mở bốn terminal tại thư mục gốc dự án. Mỗi Backup phải dùng một `DATA_DIR` riêng để WAL không bị dùng chung.
 
 **PowerShell:**
 
@@ -130,6 +130,8 @@ Sau khi các node báo sẵn sàng, có thể chạy `python tests/mock_client.p
     python tests/test_primary_comprehensive.py
 
 ## 5. KIỂM THỬ BACKUP NODE
+
+Cần Python ≥ 3.10 (xem Cách 3).
 
     # Cài các thư viện kiểm thử
     python -m pip install -r tests/requirements.txt
