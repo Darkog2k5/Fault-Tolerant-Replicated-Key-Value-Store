@@ -20,8 +20,7 @@ A distributed key-value storage cluster that replicates data across multiple sto
 
     Fault-Tolerant-Replicated-Key-Value-Store/
     ├── docker-compose.yml            # Điều phối khởi động cụm (1 Primary, 2 Backups, 1 Proxy)
-    ├── PROTOCOL_SPEC.md              # Đặc tả chi tiết các API & Format JSON (v4.0)
-    ├── HUONG_DAN_TRIEN_KHAI_v4.md    # Hướng dẫn triển khai chi tiết & giải quyết Edge Cases
+    ├── PROTOCOL_SPEC.md              # Đặc tả chi tiết các API & Format JSON (v4.1)
     ├── README.md                     # Giới thiệu & Hướng dẫn chạy dự án
     │
     ├── primary_node/                 # [SV1] Máy chủ Primary Coordinator (Port 8000)
@@ -34,6 +33,8 @@ A distributed key-value storage cluster that replicates data across multiple sto
     ├── backup_node/                  # [SV2] Máy chủ Backup Replica (Port 8001, 8002)
     │   ├── Dockerfile
     │   ├── requirements.txt
+    │   ├── config.py
+    │   ├── node.py
     │   └── main.py
     │
     ├── client_proxy/                 # [SV3] Client Proxy / Middleware (Port 8080)
@@ -42,8 +43,14 @@ A distributed key-value storage cluster that replicates data across multiple sto
     │   └── proxy.py
     │
     └── tests/                        # Bộ kiểm thử độc lập
-        ├── mock_backup.py            # Giả lập Backup Nodes (Port 8001, 8002) theo chuẩn pending/commit
-        ├── mock_client.py            # Giả lập Client test nhanh các chế độ ghi, đọc, xóa và catch-up
+        ├── conftest.py                # Cấu hình chung cho pytest
+        ├── test_backup_node.py        # Kiểm thử đơn vị Backup Node
+        ├── test_backup_cluster.py     # Kiểm thử tích hợp cụm thật
+        ├── cluster_harness.py         # Khởi chạy và dọn dẹp tiến trình cụm
+        ├── bench_recovery.py          # Đo thời gian catch-up và độ trễ đọc
+        ├── requirements.txt           # Phụ thuộc cho kiểm thử
+        ├── mock_backup.py             # Giả lập Backup theo chuẩn pending/commit (dùng cho test SV1)
+        ├── mock_client.py             # Giả lập Client kiểm thử Primary
         └── test_primary_comprehensive.py  # Bộ kiểm thử tự động toàn diện cho Primary Node (SV1)
 
 ---
@@ -90,6 +97,70 @@ Chi tiết về cấu trúc các gói tin JSON, mã trạng thái và các endpo
     # Terminal 4: Chạy Client Test
     python tests/mock_client.py
 
-### Cách 3: Chạy Bộ Kiểm thử Tự động Toàn diện (SV1)
+### Cách 3: Chạy Backup thật ở local (không Docker)
+
+Backup Node cần **Python ≥ 3.10** (code dùng cú pháp kiểu `str | None`); image Docker đã dùng `python:3.11-slim`. Mở bốn terminal tại thư mục gốc dự án. Mỗi Backup phải dùng một `DATA_DIR` riêng để WAL không bị dùng chung.
+
+**PowerShell:**
+
+    # Terminal 1: Primary
+    $env:NODE_ID="primary"; $env:PORT="8000"; $env:REPLICAS="http://127.0.0.1:8001,http://127.0.0.1:8002"; $env:DATA_DIR="data/primary"; python primary_node/main.py
+
+    # Terminal 2: Backup 1
+    $env:NODE_ID="backup-1"; $env:PORT="8001"; $env:PRIMARY_URL="http://127.0.0.1:8000"; $env:DATA_DIR="data/backup-1"; python backup_node/main.py
+
+    # Terminal 3: Backup 2
+    $env:NODE_ID="backup-2"; $env:PORT="8002"; $env:PRIMARY_URL="http://127.0.0.1:8000"; $env:DATA_DIR="data/backup-2"; python backup_node/main.py
+
+**Bash:**
+
+    # Terminal 1: Primary
+    NODE_ID=primary PORT=8000 REPLICAS=http://127.0.0.1:8001,http://127.0.0.1:8002 DATA_DIR=data/primary python primary_node/main.py
+
+    # Terminal 2: Backup 1
+    NODE_ID=backup-1 PORT=8001 PRIMARY_URL=http://127.0.0.1:8000 DATA_DIR=data/backup-1 python backup_node/main.py
+
+    # Terminal 3: Backup 2
+    NODE_ID=backup-2 PORT=8002 PRIMARY_URL=http://127.0.0.1:8000 DATA_DIR=data/backup-2 python backup_node/main.py
+
+Sau khi các node báo sẵn sàng, có thể chạy `python tests/mock_client.py` từ terminal thứ tư. Cấu hình Backup khác được liệt kê ở mục 6.
+
+### Cách 4: Chạy Bộ Kiểm thử Tự động Toàn diện của Primary (SV1)
 
     python tests/test_primary_comprehensive.py
+
+## 5. KIỂM THỬ BACKUP NODE
+
+Cần Python ≥ 3.10 (xem Cách 3).
+
+    # Cài các thư viện kiểm thử
+    python -m pip install -r tests/requirements.txt
+
+    # Chạy toàn bộ kiểm thử đơn vị và tích hợp
+    python -m pytest tests -q
+
+    # Chỉ chạy kiểm thử cụm thật hoặc bỏ qua chúng
+    python -m pytest tests -q -m integration
+    python -m pytest tests -q -m "not integration"
+
+    # Đo thời gian phục hồi với 10 và 100 bản ghi bị lỡ
+    python tests/bench_recovery.py --sizes 10,100
+
+Benchmark mặc định dùng `ASYNC`; có thể truyền chế độ khác bằng `--mode`, ví dụ `--mode QUORUM`.
+
+## 6. CẤU HÌNH BACKUP NODE
+
+| Biến môi trường | Mặc định | Mô tả |
+| :--- | :--- | :--- |
+| `NODE_ID` | `backup-1` | Tên node Backup trong phản hồi API. |
+| `PORT` | `8001` | Cổng HTTP của Backup. |
+| `PRIMARY_URL` | `http://localhost:8000` | URL Primary dùng cho catch-up và kiểm tra sức khỏe. |
+| `DATA_DIR` | `./data` | Thư mục WAL `backup_wal.jsonl` của node. |
+| `CATCHUP_HTTP_TIMEOUT` | `5.0` giây | Timeout gọi API của Primary. |
+| `REPLICATE_CATCHUP_DEADLINE` | `1.5` giây | Thời gian tối đa chờ catch-up khi phát hiện gap trong `/replicate`. |
+| `PRIMARY_FAILURES_BEFORE_DEGRADED` | `5` | Số lần liên tiếp không liên lạc được Primary trước khi chuyển `DEGRADED`. |
+| `SYNC_INTERVAL` | `5.0` giây | Chu kỳ kiểm tra Primary và đồng bộ bù nền. |
+| `CATCHUP_DELAY_MS` | `0` ms | Độ trễ mô phỏng trước mỗi lần catch-up; hữu ích để trình diễn phản hồi 503. |
+| `PENDING_TTL` | `3.0` giây | Thời gian một bản ghi pending được giữ trước khi bị xem là cũ. |
+
+Endpoint `GET /api/v1/debug/state` trả trạng thái node, `current_version`, danh sách version pending, số khóa trong RAM, đường dẫn WAL và thông tin lần catch-up gần nhất.
